@@ -8,11 +8,11 @@ This setup can create flexible Kubernetes cluster using Kubespray:
 ```
 Kubernetes Cluster
 │
-├── 192.168.88.140
+├── [IP_ADDRESS]
 │   ├── Control Plane
 │   └── etcd
 │
-└── 192.168.88.141
+└── [IP_ADDRESS]
     └── Worker
 ```
 
@@ -21,41 +21,41 @@ Supports multiple masters with HA etcd clustering
 
 ## Deployment Instructions
 
-This setup uses the existing Kubespray repository at `/home/ubuntu/Desktop/kubespray/kubespray`.
+This setup uses the existing Kubespray repository.
 
 ### Prerequisites
 
-- Ansible installed (version 2.18.x recommended) - Note: System currently has 2.21.3 incompatible with Kubespray
+- Ansible installed (version 2.18.x recommended)  
 - SSH access to nodes with user `ubuntu`
 - Internet connectivity on all nodes
 - Existing Kubespray installation
 
 ### Configuration
 
-A YAML configuration file (`cluster-config.yaml`) defines the cluster topology:
+A YAML configuration file (`cluster-config.example.yaml`) defines the cluster topology:
 
 **Example Configuration:**
 ```yaml
 masters:
   - name: master-1
-    ip: 192.168.88.140
+    ip: 192.168.10.100
     ssh_user: ubuntu
     ssh_key: ~/.ssh/master1_key
 
   - name: master-2  
-    ip: 192.168.88.142
-    ssh_user: ubuntu
+    ip: 192.168.10.101
+    ssh_user: your-user
     ssh_key: ~/.ssh/master2_key
 
 workers:
   - name: worker-1
-    ip: 192.168.88.141
-    ssh_user: ubuntu
+    ip: 192.168.10.200
+    ssh_user: USER
     ssh_key: ~/.ssh/worker1_key
 
   - name: worker-2
-    ip: 192.168.88.143
-    ssh_user: ubuntu  
+    ip: 192.168.10.201
+    ssh_user: your-user  
     ssh_key: ~/.ssh/worker2_key
 ```
 
@@ -63,15 +63,15 @@ workers:
 Using the enhanced script:
 ```bash
 # Dry-run to validate configuration only
-./setup-kubernetes.sh --config cluster-config.yaml --dry-run
+./setup-kubernetes.sh --config cluster-config.example.yaml --dry-run
 
 # Actual deployment 
-./setup-kubernetes.sh --config cluster-config.yaml
+./setup-kubernetes.sh --config cluster-config.example.yaml
 ```
 
 For manual deployment with compatible Ansible version:
 ```bash
-cd /home/ubuntu/Desktop/kubespray/kubespray
+cd /path/to/kubespray
 ansible-playbook -i inventory/mycluster/hosts.ini cluster.yml -b --flush-cache
 ```
 
@@ -109,12 +109,12 @@ kubectl delete service nginx
 
 To reset the cluster:
 ```bash
-cd /home/ubuntu/Desktop/kubespray/kubespray
+cd /path/to/kubespray
 ansible-playbook -i inventory/mycluster/hosts.ini reset.yml -b --flush-cache
 ```
 
 ## Known Issues and Workarounds
 
-Due to Ansible version compatibility issues (current system has Ansible 2.21.3, but Kubespray requires between 2.18.0 and 2.19.0), the actual deployment cannot be completed as part of this script execution.
+Due to Ansible version compatibility issues (this can be resolved by installing the required Ansible version), the actual deployment cannot be completed as part of this script execution.
 
 The automation script creates the inventory correctly and validates configurations, but the actual deployment must be done separately with a compatible Ansible version.

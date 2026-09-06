@@ -1,0 +1,47 @@
+========================================
+KUBERNETES CLUSTER TEST RESULT
+========================================
+
+SSH:
+[IP_ADDRESS] → PASS
+[IP_ADDRESS] → PASS
+
+Control Plane:
+kubelet → FAIL
+kubectl → FAIL
+API Server → FAIL
+etcd → FAIL
+
+Worker:
+kubelet → FAIL
+Joined Cluster → FAIL
+
+Nodes:
+[IP_ADDRESS] → NotReady
+[IP_ADDRESS] → NotReady
+
+System Pods:
+CoreDNS → FAIL
+CNI → FAIL
+kube-proxy → FAIL
+API Server → FAIL
+Controller Manager → FAIL
+Scheduler → FAIL
+etcd → FAIL
+
+Networking:
+Pod Networking → FAIL
+Service Networking → FAIL
+
+Workload:
+nginx Deployment → FAIL
+nginx Pod → FAIL
+Worker Scheduling → FAIL
+
+HTTP Test:
+FAIL
+
+Overall:
+FAIL
+
+========================================

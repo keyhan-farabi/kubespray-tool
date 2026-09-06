@@ -25,32 +25,31 @@ Options:
   --help                     Show this help message
 
 Example:
-  $0 --config cluster-config.yaml
-  $0 --config cluster-config.yaml --dry-run
+  $0 --config cluster-config.example.yaml
+  $0 --config cluster-config.example.yaml --dry-run
 
 Configuration file format:
 masters:
   - name: master-1
-    ip: 192.168.88.140
+    ip: 192.168.10.100
     ssh_user: ubuntu
     ssh_key: ~/.ssh/master1_key
 
   - name: master-2
-    ip: 192.168.88.142
+    ip: 192.168.10.101
     ssh_user: ubuntu
     ssh_key: ~/.ssh/master2_key
 
 workers:
   - name: worker-1
-    ip: 192.168.88.141
+    ip: 192.168.10.200
     ssh_user: ubuntu
     ssh_key: ~/.ssh/worker1_key
 
   - name: worker-2
-    ip: 192.168.88.142
+    ip: 192.168.10.201
     ssh_user: ubuntu
     ssh_key: ~/.ssh/worker2_key
-
 EOF
 }
 
@@ -375,7 +374,7 @@ function validate_ssh_connectivity() {
         
         if ssh -o BatchMode=yes -o ConnectTimeout=5 -o StrictHostKeyChecking=no \
                 -i "$key" "$user@$ip" exit &> /dev/null; then
-            echo "[OK]"  
+            echo "[OK]"
         else
             echo "[FAILED]"
             all_passed=false
@@ -415,7 +414,7 @@ kube_control_plane
 
 [kube_node]
 "   
-
+    
     # Add worker nodes to node group  
     for name in "${!WORKER_NODES[@]}"; do
         local data="${WORKER_NODES[$name]}"
@@ -582,7 +581,7 @@ function main() {
     check_dependencies
     load_config
     validate_config
-    
+     
     # Show overview
     local master_count=${#MASTER_NODES[@]}
     local worker_count=${#WORKER_NODES[@]}
@@ -614,7 +613,6 @@ function main() {
         echo "Deployment would proceed with generated inventory."
     fi
     
-    echo ""
     echo "=================================="
     echo "Kubespray cluster deployment tool finished."
     echo "=================================="

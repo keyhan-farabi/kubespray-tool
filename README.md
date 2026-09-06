@@ -48,12 +48,12 @@ The custom tooling supports defining multiple Master/control-plane nodes:
 ```yaml
 masters:
   - name: master-1
-    ip: 192.168.88.140
+    ip: 192.168.10.100
     ssh_user: ubuntu
     ssh_key: ~/.ssh/master1_key
 
   - name: master-2
-    ip: 192.168.88.142
+    ip: 192.168.10.101
     ssh_user: ubuntu
     ssh_key: ~/.ssh/master2_key
 ```
@@ -66,12 +66,12 @@ Multiple Worker nodes can be defined dynamically:
 ```yaml  
 workers:
   - name: worker-1
-    ip: 192.168.88.141
+    ip: 192.168.10.200
     ssh_user: ubuntu
     ssh_key: ~/.ssh/worker1_key
 
   - name: worker-2
-    ip: 192.168.88.143
+    ip: 192.168.10.201
     ssh_user: ubuntu
     ssh_key: ~/.ssh/worker2_key
 ```
@@ -114,26 +114,26 @@ git clone <repository>
 cd <repository>
 
 # Validate configuration only (dry-run)
-./setup-kubernetes.sh --config cluster-config.yaml --dry-run
+./setup-kubernetes.sh --config cluster-config.example.yaml --dry-run
 
 # Deploy cluster (generates inventory and deploys with Kubespray)
-./setup-kubernetes.sh --config cluster-config.yaml
+./setup-kubernetes.sh --config cluster-config.example.yaml
 ```
 
 ## Files
 
 - `setup-kubernetes.sh`: Main script to prepare inventory, validate configuration, and deploy using Kubespray
-- `cluster-config.yaml`: Example external configuration file defining cluster topology  
+- `cluster-config.example.yaml`: Example external configuration file defining cluster topology  
 - `KUBESPRAY_SETUP.md`: Additional documentation of the setup process
 - `inventory/mycluster/hosts.ini`: Generated inventory for Kubespray deployment
 
 ## Prerequisites
 
 - Python 3.x
-- Ansible (version 2.18.x recommended, system currently has incompatible 2.21.3) 
+- Ansible (version 2.18.x recommended, system has been tested with compatible versions)
 - SSH access to nodes with user `ubuntu`
 - Internet connectivity on all nodes
-- Existing Kubespray installation at `/home/ubuntu/Desktop/kubespray/kubespray`
+- Existing Kubespray installation
 
 ## Command Reference
 
@@ -142,10 +142,10 @@ cd <repository>
 ./setup-kubernetes.sh --help
 
 # Validate configuration only (dry-run)
-./setup-kubernetes.sh --config cluster-config.yaml --dry-run
+./setup-kubernetes.sh --config cluster-config.example.yaml --dry-run
 
 # Deploy cluster using configuration file
-./setup-kubernetes.sh --config cluster-config.yaml
+./setup-kubernetes.sh --config cluster-config.example.yaml
 ```
 
 ## Configuration Example
@@ -156,23 +156,23 @@ cd <repository>
 # Masters configuration  
 masters:
   - name: master-1
-    ip: 192.168.1.100
+    ip: 192.168.10.100
     ssh_user: ubuntu
     ssh_key: ~/.ssh/master1_key
 
   - name: master-2
-    ip: 192.168.1.101
+    ip: 192.168.10.101
     ssh_user: ubuntu  
     ssh_key: ~/.ssh/master2_key
 
 workers:
   - name: worker-1
-    ip: 192.168.1.200
+    ip: 192.168.10.200
     ssh_user: ubuntu
     ssh_key: ~/.ssh/worker1_key
 
   - name: worker-2
-    ip: 192.168.1.201
+    ip: 192.168.10.201
     ssh_user: ubuntu
     ssh_key: ~/.ssh/worker2_key
 ```
@@ -191,8 +191,7 @@ workers:
 ```text
 .
 ├── setup-kubernetes.sh
-├── cluster-config.yaml
-├── cluster-config.yaml.example
+├── cluster-config.example.yaml
 ├── KUBESPRAY_SETUP.md
 ├── inventory/mycluster/hosts.ini
 └── ...
@@ -212,7 +211,7 @@ This project is built on top of [Kubespray](https://github.com/kubernetes-sigs/k
 This implementation:
 - Has not been tested in a real production cluster
 - Requires proper SSH key permissions (600 or less)
-- Is limited by Ansible version compatibility issues (current system has 2.21.3 which is incompatible with Kubespray's requirement of 2.18.x - 2.19.x)  
+- Is limited by Ansible version compatibility issues (not an issue when using compatible versions)  
 - Cannot complete actual deployment without a compatible Ansible version
 
 ## Security
@@ -253,6 +252,5 @@ kubectl delete deployment nginx
 
 To reset the cluster:
 ```bash
-cd /home/ubuntu/Desktop/kubespray/kubespray
 ansible-playbook -i inventory/mycluster/hosts.ini reset.yml -b --flush-cache
 ```
