@@ -1,11 +1,4 @@
 ---
-- name: Check ansible version
-  import_playbook: ansible_version.yml
-
-# These are inventory compatibility tasks with two purposes:
-# - to ensure we keep compatibility with old style group names
-# - to reduce inventory boilerplate (defining parent groups / empty groups)
-
 - name: Inventory setup and validation
   hosts: all
   gather_facts: false

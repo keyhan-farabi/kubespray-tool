@@ -1,226 +1,258 @@
-# Deploy a Production Ready Kubernetes Cluster
+# Kubernetes Cluster Deployment with Kubespray
 
-![Kubernetes Logo](https://raw.githubusercontent.com/kubernetes-sigs/kubespray/master/docs/img/kubernetes-logo.png)
+## Overview
 
-If you have questions, check the documentation at [kubespray.io](https://kubespray.io) and join us on the [kubernetes slack](https://kubernetes.slack.com), channel **\#kubespray**.
-You can get your invite [here](http://slack.k8s.io/)
+This repository contains a configuration-driven tool for deploying Kubernetes clusters using [Kubespray](https://github.com/kubernetes-sigs/kubespray) as the underlying deployment engine.
 
-- Can be deployed on **[AWS](docs/cloud_providers/aws.md), GCE, [Azure](docs/cloud_providers/azure.md), [OpenStack](docs/cloud_controllers/openstack.md), [vSphere](docs/cloud_controllers/vsphere.md), [Equinix Metal](docs/cloud_providers/equinix-metal.md) (bare metal), Oracle Cloud Infrastructure (Experimental), or Baremetal**
-- **Highly available** cluster
-- **Composable** (Choice of the network plugin for instance)
-- Supports most popular **Linux distributions**
-- **Continuous integration tests**
+**Project Architecture:**
+```text
+                 Custom Setup Tool
+                 setup-kubernetes.sh
+                         |
+                         v
+                cluster-config.yaml
+                         |
+                         v
+              Configuration Validation
+                         |
+                         v
+               SSH Connectivity Check
+                         |
+                         v
+                 Inventory Generation
+                         |
+                         v
+                      Kubespray
+                         |
+              +----------+----------+
+              |                     |
+              v                     v
+       Kubernetes Control       Kubernetes Workers
+           Plane                 / Worker Nodes
+```
+
+This project is **based on Kubespray** - the custom setup tool provides a configuration-driven workflow around Kubespray's Ansible-based deployment mechanisms.
+
+## Project Features
+
+### Configuration-driven cluster definition
+Instead of hardcoding IP addresses and configuration, the cluster topology is defined externally using a `cluster-config.yaml` file which supports:
+- Multiple Masters/control-plane nodes
+- Multiple Workers
+- Per-node SSH user and key configuration
+- Dynamic inventory generation for Kubespray
+
+### Multi-Master support  
+The custom tooling supports defining multiple Master/control-plane nodes:
+
+```yaml
+masters:
+  - name: master-1
+    ip: 192.168.88.140
+    ssh_user: ubuntu
+    ssh_key: ~/.ssh/master1_key
+
+  - name: master-2
+    ip: 192.168.88.142
+    ssh_user: ubuntu
+    ssh_key: ~/.ssh/master2_key
+```
+
+> **Note**: Kubespray itself is responsible for actual Kubernetes cluster deployment and HA/control-plane behavior.
+
+### Multi-Worker support
+Multiple Worker nodes can be defined dynamically:
+
+```yaml  
+workers:
+  - name: worker-1
+    ip: 192.168.88.141
+    ssh_user: ubuntu
+    ssh_key: ~/.ssh/worker1_key
+
+  - name: worker-2
+    ip: 192.168.88.143
+    ssh_user: ubuntu
+    ssh_key: ~/.ssh/worker2_key
+```
+
+### Per-node SSH configuration
+Each node can have its own:
+- Hostname/name
+- IP address  
+- SSH user
+- SSH private key
+
+Example per-node SSH mapping:
+```text
+master-1 -> ~/.ssh/master1_key
+master-2 -> ~/.ssh/master2_key
+worker-1 -> ~/.ssh/worker1_key  
+worker-2 -> ~/.ssh/worker2_key
+```
+
+### Dynamic inventory generation
+The custom script automatically generates the required Kubespray inventory file (`inventory/mycluster/hosts.ini`) that includes:
+- `[kube_control_plane]` group for Master nodes
+- `[etcd]` group (includes all control plane nodes)
+- `[kube_node]` group for Worker nodes
+- Per-node SSH configuration using `ansible_ssh_private_key_file`
+
+### Additional functionality  
+- Configuration validation
+- Duplicate node detection
+- Duplicate IP detection
+- SSH key validation
+- Required field validation
+- SSH connectivity testing
+- Dry-run mode for validation without deployment
 
 ## Quick Start
 
-Below are several ways to use Kubespray to deploy a Kubernetes cluster.
+```bash
+git clone <repository>
+cd <repository>
 
-### Docker
+# Validate configuration only (dry-run)
+./setup-kubernetes.sh --config cluster-config.yaml --dry-run
 
-Ensure you have installed Docker then
-
-```ShellSession
-docker run --rm -it --mount type=bind,source="$(pwd)"/inventory/sample,dst=/inventory \
-  --mount type=bind,source="${HOME}"/.ssh/id_rsa,dst=/root/.ssh/id_rsa \
-  quay.io/kubespray/kubespray:v2.31.0 bash
-# Inside the container you may now run the kubespray playbooks:
-ansible-playbook -i /inventory/inventory.ini --private-key /root/.ssh/id_rsa cluster.yml
+# Deploy cluster (generates inventory and deploys with Kubespray)
+./setup-kubernetes.sh --config cluster-config.yaml
 ```
 
-### Ansible
+## Files
 
-#### Usage
+- `setup-kubernetes.sh`: Main script to prepare inventory, validate configuration, and deploy using Kubespray
+- `cluster-config.yaml`: Example external configuration file defining cluster topology  
+- `KUBESPRAY_SETUP.md`: Additional documentation of the setup process
+- `inventory/mycluster/hosts.ini`: Generated inventory for Kubespray deployment
 
-See [Getting started](/docs/getting_started/getting-started.md)
+## Prerequisites
 
-#### Collection
+- Python 3.x
+- Ansible (version 2.18.x recommended, system currently has incompatible 2.21.3) 
+- SSH access to nodes with user `ubuntu`
+- Internet connectivity on all nodes
+- Existing Kubespray installation at `/home/ubuntu/Desktop/kubespray/kubespray`
 
-See [here](docs/ansible/ansible_collection.md) if you wish to use this repository as an Ansible collection
+## Command Reference
 
-### Vagrant
+```bash
+# Show help
+./setup-kubernetes.sh --help
 
-For Vagrant we need to install Python dependencies for provisioning tasks.
-Check that ``Python`` and ``pip`` are installed:
+# Validate configuration only (dry-run)
+./setup-kubernetes.sh --config cluster-config.yaml --dry-run
 
-```ShellSession
-python -V && pip -V
+# Deploy cluster using configuration file
+./setup-kubernetes.sh --config cluster-config.yaml
 ```
 
-If this returns the version of the software, you're good to go. If not, download and install Python from here <https://www.python.org/downloads/source/>
+## Configuration Example
 
-Install Ansible according to [Ansible installation guide](/docs/ansible/ansible.md#installing-ansible)
-then run the following step:
+```yaml
+# Cluster Configuration File for Kubespray Deployment
 
-```ShellSession
-vagrant up
+# Masters configuration  
+masters:
+  - name: master-1
+    ip: 192.168.1.100
+    ssh_user: ubuntu
+    ssh_key: ~/.ssh/master1_key
+
+  - name: master-2
+    ip: 192.168.1.101
+    ssh_user: ubuntu  
+    ssh_key: ~/.ssh/master2_key
+
+workers:
+  - name: worker-1
+    ip: 192.168.1.200
+    ssh_user: ubuntu
+    ssh_key: ~/.ssh/worker1_key
+
+  - name: worker-2
+    ip: 192.168.1.201
+    ssh_user: ubuntu
+    ssh_key: ~/.ssh/worker2_key
 ```
 
-## Documents
+### Configuration Fields Explanation
 
-- [Requirements](#requirements)
-- [Kubespray vs ...](docs/getting_started/comparisons.md)
-- [Getting started](docs/getting_started/getting-started.md)
-- [Setting up your first cluster](docs/getting_started/setting-up-your-first-cluster.md)
-- [Ansible inventory and tags](docs/ansible/ansible.md)
-- [Integration with existing ansible repo](docs/operations/integration.md)
-- [Deployment data variables](docs/ansible/vars.md)
-- [DNS stack](docs/advanced/dns-stack.md)
-- [HA mode](docs/operations/ha-mode.md)
-- [Network plugins](#network-plugins)
-- [Vagrant install](docs/developers/vagrant.md)
-- [Flatcar Container Linux bootstrap](docs/operating_systems/flatcar.md)
-- [Fedora CoreOS bootstrap](docs/operating_systems/fcos.md)
-- [openSUSE setup](docs/operating_systems/opensuse.md)
-- [Downloaded artifacts](docs/advanced/downloads.md)
-- [Equinix Metal](docs/cloud_providers/equinix-metal.md)
-- [OpenStack](docs/cloud_controllers/openstack.md)
-- [vSphere](docs/cloud_controllers/vsphere.md)
-- [Large deployments](docs/operations/large-deployments.md)
-- [Adding/replacing a node](docs/operations/nodes.md)
-- [Upgrades basics](docs/operations/upgrades.md)
-- [Air-Gap installation](docs/operations/offline-environment.md)
-- [NTP](docs/advanced/ntp.md)
-- [Hardening](docs/operations/hardening.md)
-- [Mirror](docs/operations/mirror.md)
-- [Roadmap](docs/roadmap/roadmap.md)
+| Field | Description |
+|-------|-------------|
+| `name` | Unique node identifier (used in inventory) |
+| `ip` | IP address of the node |
+| `ssh_user` | SSH username for connecting to the node |
+| `ssh_key` | Path to private SSH key file for the node |
 
-## Supported Linux Distributions
+## Project Structure
 
-- **Flatcar Container Linux by Kinvolk**
-- **Debian** Bookworm, Bullseye, Trixie
-- **Ubuntu** 22.04, 24.04
-- **CentOS Stream / RHEL** 9, 10
-- **Fedora** 39, 40, 41, 42
-- **Fedora CoreOS** (see [fcos Note](docs/operating_systems/fcos.md))
-- **openSUSE** Leap 15.x/Tumbleweed
-- **Oracle Linux** 9, 10
-- **Alma Linux** 9, 10
-- **Rocky Linux** 9, 10 (experimental in 10: see [Rocky Linux 10 notes](docs/operating_systems/rhel.md#rocky-linux-10))
-- **Kylin Linux Advanced Server V10** (experimental: see [kylin linux notes](docs/operating_systems/kylinlinux.md))
-- **Amazon Linux 2** (experimental: see [amazon linux notes](docs/operating_systems/amazonlinux.md))
-- **UOS Linux** (experimental: see [uos linux notes](docs/operating_systems/uoslinux.md))
-- **openEuler** (experimental: see [openEuler notes](docs/operating_systems/openeuler.md))
+```text
+.
+├── setup-kubernetes.sh
+├── cluster-config.yaml
+├── cluster-config.yaml.example
+├── KUBESPRAY_SETUP.md
+├── inventory/mycluster/hosts.ini
+└── ...
+```
 
-Note:
+## Built on Kubespray
 
-- Upstart/SysV init based OS types are not supported.
-- [Kernel requirements](docs/operations/kernel-requirements.md) (please read if the OS kernel version is < 4.19).
+This project is built on top of [Kubespray](https://github.com/kubernetes-sigs/kubespray), an open source Kubernetes deployment tool that automates the installation of a production-ready Kubernetes cluster.
 
-## Supported Components
+- **Kubespray** is the underlying deployment framework
+- This project provides additional configuration and automation layer  
+- The custom setup script reuses Kubespray's Ansible-based deployment mechanisms
+- The project simplifies defining and deploying different cluster topologies
 
-<!-- BEGIN ANSIBLE MANAGED BLOCK -->
+## Limitations  
 
-- Core
-  - [kubernetes](https://github.com/kubernetes/kubernetes) 1.36.4
-  - [etcd](https://github.com/etcd-io/etcd) 3.6.14
-  - [docker](https://www.docker.com/) 28.3
-  - [containerd](https://containerd.io/) 2.3.4
-  - [cri-o](https://cri-o.io/) 1.36.3 (experimental: see [CRI-O Note](docs/CRI/cri-o.md). Only on fedora, ubuntu and centos based OS)
-- Network Plugin
-  - [cni-plugins](https://github.com/containernetworking/plugins) 1.9.1
-  - [calico](https://github.com/projectcalico/calico) 3.31.7
-  - [cilium](https://github.com/cilium/cilium) 1.20.1
-  - [flannel](https://github.com/flannel-io/flannel) 0.28.4
-  - [kube-ovn](https://github.com/alauda/kube-ovn) 1.12.21
-  - [kube-router](https://github.com/cloudnativelabs/kube-router) 2.1.1
-  - [multus](https://github.com/k8snetworkplumbingwg/multus-cni) 4.2.2
-  - [kube-vip](https://github.com/kube-vip/kube-vip) 1.0.3
-- Application
-  - [cert-manager](https://github.com/jetstack/cert-manager) 1.15.3
-  - [coredns](https://github.com/coredns/coredns) 1.14.2
-  - [argocd](https://argoproj.github.io/) 2.14.5
-  - [helm](https://helm.sh/) 3.18.4
-  - [metallb](https://metallb.universe.tf/) 0.13.9
-  - [registry](https://github.com/distribution/distribution) 2.8.1
-- Storage Plugin
-  - [aws-ebs-csi-plugin](https://github.com/kubernetes-sigs/aws-ebs-csi-driver) 0.5.0
-  - [azure-csi-plugin](https://github.com/kubernetes-sigs/azuredisk-csi-driver) 1.10.0
-  - [cinder-csi-plugin](https://github.com/kubernetes/cloud-provider-openstack/blob/master/docs/cinder-csi-plugin/using-cinder-csi-plugin.md) 1.30.0
-  - [gcp-pd-csi-plugin](https://github.com/kubernetes-sigs/gcp-compute-persistent-disk-csi-driver) 1.9.2
-  - [local-path-provisioner](https://github.com/rancher/local-path-provisioner) 0.0.32
-  - [local-volume-provisioner](https://github.com/kubernetes-sigs/sig-storage-local-static-provisioner) 2.5.0
-  - [node-feature-discovery](https://github.com/kubernetes-sigs/node-feature-discovery) 0.16.4
+This implementation:
+- Has not been tested in a real production cluster
+- Requires proper SSH key permissions (600 or less)
+- Is limited by Ansible version compatibility issues (current system has 2.21.3 which is incompatible with Kubespray's requirement of 2.18.x - 2.19.x)  
+- Cannot complete actual deployment without a compatible Ansible version
 
-<!-- END ANSIBLE MANAGED BLOCK -->
+## Security
 
-## Container Runtime Notes
+- SSH private keys must remain outside the repository
+- Configuration files containing sensitive infrastructure details should not be committed to version control
+- Never commit private key contents to git repositories
+- Use appropriate SSH key permissions (preferably 600)
+- Review `.gitignore` to ensure sensitive files are not tracked  
 
-- The CRI-O minor version should match the Kubernetes minor version.
+## Technology Stack
 
-## Requirements
+- **Kubernetes** - Container orchestration platform
+- **Kubespray** - Kubernetes deployment automation using Ansible  
+- **Ansible** - Configuration management and deployment automation
+- **Python** - Scripting for configuration handling
+- **Bash** - Shell scripting for automation flow
+- **YAML** - Configuration file format
+- **SSH** - Node communication protocol
 
-- **Minimum required version of Kubernetes is v1.34.0**
+## Verification
 
-- **Ansible v2.14+, Jinja 2.11+ and python-netaddr is installed on the machine that will run Ansible commands**
-- The target servers must have **access to the Internet** in order to pull docker images. Otherwise, additional configuration is required (See [Offline Environment](docs/operations/offline-environment.md))
-- The target servers are configured to allow **IPv4 forwarding**.
-- If using IPv6 for pods and services, the target servers are configured to allow **IPv6 forwarding**.
-- The **firewalls are not managed**, you'll need to implement your own rules the way you used to.
-    in order to avoid any issue during deployment you should disable your firewall.
-- If kubespray is run from non-root user account, correct privilege escalation method
-    should be configured in the target servers. Then the `ansible_become` flag
-    or command parameters `--become or -b` should be specified.
+After a successful deployment:
+```bash
+kubectl get nodes -o wide
+kubectl get pods -A
+kubectl cluster-info
+```
 
-Hardware:
-These limits are safeguarded by Kubespray. Actual requirements for your workload can differ. For a sizing guide go to the [Building Large Clusters](https://kubernetes.io/docs/setup/cluster-large/#size-of-master-and-master-components) guide.
+Test workload deployments:
+```bash
+kubectl create deployment nginx --image=nginx
+kubectl get pods -o wide
+kubectl delete deployment nginx
+```
 
-- Control Plane
-  - Memory: 2 GB
-- Worker Node
-  - Memory: 1 GB
+## Reset/Destroy Instructions
 
-## Network Plugins
-
-You can choose among ten network plugins. (default: `calico`, except Vagrant uses `flannel`)
-
-- [flannel](docs/CNI/flannel.md): gre/vxlan (layer 2) networking.
-
-- [Calico](https://docs.tigera.io/calico/latest/about/) is a networking and network policy provider. Calico supports a flexible set of networking options
-    designed to give you the most efficient networking across a range of situations, including non-overlay
-    and overlay networks, with or without BGP. Calico uses the same engine to enforce network policy for hosts,
-    pods, and (if using Istio and Envoy) applications at the service mesh layer.
-
-- [cilium](http://docs.cilium.io/en/latest/): layer 3/4 networking (as well as layer 7 to protect and secure application protocols), supports dynamic insertion of BPF bytecode into the Linux kernel to implement security services, networking and visibility logic.
-
-- [kube-ovn](docs/CNI/kube-ovn.md): Kube-OVN integrates the OVN-based Network Virtualization with Kubernetes. It offers an advanced Container Network Fabric for Enterprises.
-
-- [kube-router](docs/CNI/kube-router.md): Kube-router is a L3 CNI for Kubernetes networking aiming to provide operational
-    simplicity and high performance: it uses IPVS to provide Kube Services Proxy (if setup to replace kube-proxy),
-    iptables for network policies, and BGP for ods L3 networking (with optionally BGP peering with out-of-cluster BGP peers).
-    It can also optionally advertise routes to Kubernetes cluster Pods CIDRs, ClusterIPs, ExternalIPs and LoadBalancerIPs.
-
-- [macvlan](docs/CNI/macvlan.md): Macvlan is a Linux network driver. Pods have their own unique Mac and Ip address, connected directly the physical (layer 2) network.
-
-- [multus](docs/CNI/multus.md): Multus is a meta CNI plugin that provides multiple network interface support to pods. For each interface Multus delegates CNI calls to secondary CNI plugins such as Calico, macvlan, etc.
-
-- [custom_cni](roles/network-plugin/custom_cni/) : You can specify some manifests that will be applied to the clusters to bring you own CNI and use non-supported ones by Kubespray.
-  See `tests/files/custom_cni/README.md` and `tests/files/custom_cni/values.yaml`for an example with a CNI provided by a Helm Chart.
-
-The network plugin to use is defined by the variable `kube_network_plugin`. There is also an
-option to leverage built-in cloud provider networking instead.
-See also [Network checker](docs/advanced/netcheck.md).
-
-## Ingress Plugins
-
-- [metallb](docs/ingress/metallb.md): the MetalLB bare-metal service LoadBalancer provider.
-
-## Community docs and resources
-
-- [kubernetes.io/docs/setup/production-environment/tools/kubespray/](https://kubernetes.io/docs/setup/production-environment/tools/kubespray/)
-- [kubespray, monitoring and logging](https://github.com/gregbkr/kubernetes-kargo-logging-monitoring) by @gregbkr
-- [Deploy Kubernetes w/ Ansible & Terraform](https://rsmitty.github.io/Terraform-Ansible-Kubernetes/) by @rsmitty
-- [Deploy a Kubernetes Cluster with Kubespray (video)](https://www.youtube.com/watch?v=CJ5G4GpqDy0)
-
-## Tools and projects on top of Kubespray
-
-- [Digital Rebar Provision](https://github.com/digitalrebar/provision/blob/v4/doc/integrations/ansible.rst)
-- [Terraform Contrib](https://github.com/kubernetes-sigs/kubespray/tree/master/contrib/terraform)
-- [Kubean](https://github.com/kubean-io/kubean)
-
-## CI Tests
-
-[![Build graphs](https://gitlab.com/kargo-ci/kubernetes-sigs-kubespray/badges/master/pipeline.svg)](https://gitlab.com/kargo-ci/kubernetes-sigs-kubespray/-/pipelines)
-
-CI/end-to-end tests sponsored by: [CNCF](https://cncf.io), [Equinix Metal](https://metal.equinix.com/), [OVHcloud](https://www.ovhcloud.com/), [ELASTX](https://elastx.se/).
-
-See the [test matrix](docs/developers/test_cases.md) for details.
+To reset the cluster:
+```bash
+cd /home/ubuntu/Desktop/kubespray/kubespray
+ansible-playbook -i inventory/mycluster/hosts.ini reset.yml -b --flush-cache
+```
